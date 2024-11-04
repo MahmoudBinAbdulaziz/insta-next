@@ -1,6 +1,6 @@
 import { HiOutlineDotsVertical } from "react-icons/hi";
 import LikeSection from "./likeSection";
-import CommentSection from "./CommentSection";
+import CommentSection from "./commentSection";
 
 export default function Post({ post }) {
   return (
