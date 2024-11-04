@@ -7,27 +7,61 @@ import { IoMdAddCircleOutline } from "react-icons/io";
 import { AiOutlineClose } from "react-icons/ai";
 import { HiCamera } from "react-icons/hi";
 import Modal from "react-modal";
+import { db } from "@/app/api/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 function Header() {
   const { data: session } = useSession();
   const filePickerRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [imageFileUrl, setImageFileUrl] = useState(null);
   const [caption, setCaption] = useState("");
-  // const [imageFileUploading, setImageFileUploading] = useState(false);
-  // const [postUploading, setPostUploading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const addImageToPost = (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
-      setImageFileUrl(URL.createObjectURL(file));
+
+      // Convert file to base64 for Imgur upload
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = () => {
+        setImageFileUrl(reader.result); // This will be used for the Imgur API
+      };
     }
   };
-  useEffect(() => {
-    if (selectedFile) {
-    }
-  }, [selectedFile]);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const handleUpload = async () => {
+    if (!imageFileUrl) return;
+
+    try {
+      setUploading(true);
+      const response = await fetch("/api/uploadToImgur", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageData: imageFileUrl }),
+      });
+      setUploading(false);
+      // console.log(response);
+      const data = await response.json();
+      const post = {
+        username: session.user.username,
+        profileImg: session.user.image,
+        timestamp: serverTimestamp(),
+        img: data.imageUrl,
+        caption: caption,
+      };
+      await addDoc(collection(db, "posts"), post);
+      setCaption("");
+      setSelectedFile(null);
+      setImageFileUrl(null);
+      setIsOpen(false);
+      // console.log(post);
+    } catch (error) {
+      setUploading(false);
+    }
+  };
+
   return (
     <header className="shadow-sm border-b sticky top-0 bg-white z-30 p-3">
       <div className="flex justify-between items-center max-w-6xl mx-auto">
@@ -91,10 +125,9 @@ function Header() {
                 onClick={() => setSelectedFile(null)}
                 src={imageFileUrl}
                 alt="selected file"
-                className={
-                  `w-full max-h-[250px] object-over cursor-pointer `
-                  // ${imageFileUploading ? "animate-pulse" : ""}
-                }
+                className={`w-full max-h-[250px] object-over cursor-pointer ${
+                  uploading ? "animate-pulse" : ""
+                }`}
               />
             ) : (
               <HiCamera
@@ -113,18 +146,13 @@ function Header() {
           <input
             type="text"
             maxLength="150"
-            placeholder="Please enter you caption..."
+            placeholder="Please enter your caption..."
             className="m-4 border-none text-center w-full focus:ring-0 outline-none"
             onChange={(e) => setCaption(e.target.value)}
           />
           <button
-            // onClick={handleSubmit}
-            disabled={
-              !selectedFile || caption.trim() === ""
-
-              // ||   postUploading ||
-              // imageFileUploading
-            }
+            onClick={handleUpload}
+            disabled={!selectedFile || caption.trim() === ""}
             className="w-full bg-red-600 text-white p-2 shadow-md rounded-lg hover:brightness-105 disabled:bg-gray-200 disabled:cursor-not-allowed disabled:hover:brightness-100"
           >
             Upload Post
