@@ -18,6 +18,7 @@ const handler = NextAuth({
       return session;
     },
   },
+  secret: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
 });
 
 export { handler as GET, handler as POST };
